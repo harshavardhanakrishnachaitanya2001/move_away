@@ -1,25 +1,24 @@
-import logo from './logo.svg';
-import './App.css';
 
-function App() {
+import React, { useState, useEffect } from 'react';
+import Header from './components/Header';
+import Game from './components/Game';
+
+const App = () => {
+  const [score, setScore] = useState(0);
+  const [gameComplete, setGameComplete] = useState(false);
+
+  useEffect(() => {
+    if (score === 100 && !gameComplete) {
+      setGameComplete(true);
+    }
+  }, [score, gameComplete]);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div className='mx-auto bg-black h-screen'>
+      <Header score={score} gameComplete={gameComplete} />
+      <Game score={score} setScore={setScore} setGameComplete={setGameComplete} gameComplete={gameComplete} />
     </div>
   );
-}
+};
 
 export default App;
