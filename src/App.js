@@ -14,7 +14,7 @@ const App = () => {
   }, [score, gameComplete]);
 
   return (
-    <div className='mx-auto bg-black h-screen'>
+    <div className='bg-black'>
       <Header score={score} gameComplete={gameComplete} />
       <Game score={score} setScore={setScore} setGameComplete={setGameComplete} gameComplete={gameComplete} />
     </div>

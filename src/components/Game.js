@@ -1,84 +1,210 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import toySpaceship from "../imags/toy_space_ship.png";
 import { motion, useMotionValue } from "framer-motion";
-import astroids from "../imags/astroids.png";
+import spongebob from "../imags/spongebob.png";
+import Laser from "./Laser";
 
-const asteroidVariants = {
+const imageVariant = {
+  initial: {
+    x: "-100vw",
+  },
   animate: {
-    y: "100vh",
+    x: 0,
     transition: {
-      duration: 5,
-      ease: "linear",
+      delay: 1,
+      type: "spring",
+      duration: 0.5,
+      stiffness: 200,
     },
   },
+  
 };
 
-const Game = ({setScore, setGameComplete }) => {
+const Game = ({ setScore, setGameComplete }) => {
+  const [animationTrigger, setAnimationTrigger] = useState(false);
+  const [removedLasers, setRemovedLasers] = useState([]);
+  const [lasers, setLasers] = useState([]);
+  const newImageList = [];
+  for (let i = 0; i < 100; i++) {
+    newImageList.push({
+      id: i,
+      visible: true,
+      image: (
+        <motion.img
+          variants={imageVariant}
+          id={`target-${i}`}
+          key={i}
+          src={spongebob}
+          alt=""
+          className="w-14 h-14"
+          initial="initial"
+          animate="animate"
+        />
+      ),
+    });
+  }
+  const [images, setImages] = useState(newImageList);
+  const imagePerRow = 10;
   const x = useMotionValue(0);
-  const [rocks, setRocks] = useState([]);
 
-  const addRock = () => {
-    const newRock = {
-      id: Date.now(),
-      x: Math.random() * window.innerWidth,
-      y: -50,
-    };
-    setRocks((prevRocks) => [...prevRocks, newRock]);
+  const shootLaser = () => {
+    setLasers((prevLasers) => [
+      ...prevLasers,
+      { key: `laser-${prevLasers.length}`, x: x.get() },
+    ]);
   };
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const numRocks = Math.floor(Math.random() * 5) + 1;
-      for (let i = 0; i < numRocks; i++) {
-        addRock();
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   const handleMouseMove = (event) => {
-    x.set(event.clientX);
+    const cursorPosition = event.clientX;
+    x.set(cursorPosition);
   };
 
-  const handleFireClick = () => {
-    setScore((prevScore) => prevScore + 2);
-  };
-
+  const findLastIndex = (array, callback) => {
+    for (let i = array.length - 1; i >= 0; i--) {
+      if (callback(array[i], i, array)) {
+        return i;
+      }
+    }
+    return -1;
+  }
   const restartGame = () => {
     setGameComplete(false);
-    setScore(0);
+  setScore(0);
+  setRemovedLasers([]);
+  setLasers([]);
+  setImages(newImageList);
+  setAnimationTrigger((prevTrigger) => !prevTrigger);
   };
+  
+
+  const checkCollision = useCallback(
+    (laser) => {
+      if (removedLasers.includes(laser.key)) return;
+
+      const laserElement = document.getElementById(`laser-${laser.key}`);
+      const laserRect = laserElement
+        ? laserElement.getBoundingClientRect()
+        : null;
+
+      if (laserRect && laserRect.y < 0) {
+        setRemovedLasers((prevRemovedLasers) => [
+          ...prevRemovedLasers,
+          laser.key,
+        ]);
+        return;
+      }
+
+      const hitImageIndex = findLastIndex(images,(image) => {
+        const imageElement = document.getElementById(`target-${image.id}`);
+        const imageRect = imageElement
+          ? imageElement.getBoundingClientRect()
+          : null;
+         
+        return (
+          image.visible &&
+          imageRect &&
+          laserRect &&
+          laserRect.x < imageRect.x + imageRect.width &&
+          laserRect.x + laserRect.width > imageRect.x 
+        );
+      });
+
+      if (hitImageIndex !== -1) {
+        const spaceshipElement = document.querySelector(".w-14.h-14");
+        const spaceshipRect = spaceshipElement
+          ? spaceshipElement.getBoundingClientRect()
+          : null;
+        const hitImageElement = document.getElementById(`target-${hitImageIndex}`);
+        const hitImageRect = hitImageElement
+          ? hitImageElement.getBoundingClientRect()
+          : null;
+          if (spaceshipRect && hitImageRect) {
+            const distance = Math.abs(hitImageRect.y - spaceshipRect.y);
+            const delay = distance / 2;
+            setTimeout(() => {
+              setScore((prevScore) => prevScore + 1);
+              setImages((prevImages) =>
+                prevImages.map((image, index) => {
+                  if (index === hitImageIndex) {
+                    return { ...image, visible: false };
+                  }
+                  return image;
+                })
+              );
+              setRemovedLasers((prevRemovedLasers) => [
+                ...prevRemovedLasers,
+                laser.key,
+              ]);
+            }, delay)
+          }
+      }
+    },
+    [images, removedLasers, setScore]
+  );
+
+  useEffect(() => {
+    const newImageRows = [];
+    for (let i = 0; i < images.length; i += imagePerRow) {
+      newImageRows.push(images.slice(i, i + imagePerRow));
+    }
+
+    lasers.forEach((laser) => {
+      checkCollision(laser);
+    });
+  }, [lasers, checkCollision, images]);
 
   return (
-    <div className="h-screen">
-      {/* Asteroid field */}
-      {rocks.map((rock) => (
-        <motion.img
-          key={rock.id}
-          variants={asteroidVariants}
-          animate="animate"
-          src={astroids}
-          alt=""
-          className="absolute"
-          style={{ left: rock.x, top: rock.y, width: 40, height: 40 }}
-        />
-      ))}
-
+    <div className="h-screen my-auto">
+      {/* Targets */}
+      <div className="grid grid-cols-10 gap-x-5 gap-y-5 max-w-6xl mx-auto" key={animationTrigger.toString()}>
+        {images.map((image) =>
+          image.visible ? (
+            <motion.div key={image.id}>
+              <motion.img
+                variants={imageVariant}
+                id={`target-${image.id}`}
+                key={image.id}
+                src={spongebob}
+                alt=""
+                className="w-14 h-14"
+                initial="initial"
+                animate="animate"
+              />
+            </motion.div>
+          ) : (
+            <div key={image.id} className="w-14 h-14" />
+          )
+        )}
+      </div>
       {/* Spaceship */}
       <motion.div
-        onClick={handleFireClick}
-        className="absolute bottom-28 left-auto right-auto w-full h-14"
+        className="absolute bottom-28  w-full h-14"
         onMouseMove={handleMouseMove}
+        onClick={shootLaser}
       >
         <motion.img
           style={{ x }}
           src={toySpaceship}
           alt=""
           animate={{ y: [2, -2, 2, -2, 2, -2, 2, -2, 2, -2, 2] }}
-          transition={{ y: { duration: 2, repeat: Infinity, repeatDuration: 1, ease: "easeInOut" } }}
+          transition={{
+            y: {
+              duration: 2,
+              repeat: Infinity,
+              repeatDuration: 1,
+              ease: "easeInOut",
+            },
+          }}
           className="w-14 h-14"
         />
       </motion.div>
+
+      {/* Lasers */}
+      {lasers
+        .filter((laser) => !removedLasers.includes(laser.key))
+        .map((laser) => (
+          <Laser key={laser.key} id={`laser-${laser.key}`} x={laser.x} />
+        ))}
 
       {/* Restart button */}
       <div className="justify-center flex items-end fixed bottom-4 w-11/12">
